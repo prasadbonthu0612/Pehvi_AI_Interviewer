@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pehvi - AI Mock Interviewer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="tech-bg"></div>
+    <div class="grid-overlay"></div>
+    
+    <header>
+        <div class="container">
+            <div class="nav-wrapper">
+                <div class="auth-buttons" style="margin-left: auto;">
+                    <a href="{{ url_for('login') }}" class="btn tech-btn login">Log In</a>
+                    <a href="{{ url_for('signup') }}" class="btn tech-btn signup">Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="hero">
+                <div class="hero-content">
+                    <div class="title-wrapper">
+                        <div class="tech-badge">AI Powered</div>
+                        <h1 class="tech-title">Pehvi</h1>
+                        <p class="tech-tagline">your AI Mock Interviewer.</p>
+                    </div>
+                    <div class="tech-description">
+                        Experience the future of interview preparation with our advanced AI technology. Get real-time feedback and personalized coaching.
+                    </div>
+                    <div class="cta">
+                        <a href="signup.html" class="tech-btn primary get-started">
+                            Get Started
+                            <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="tech-animation">
+                        <div class="neural-network">
+                            <div class="node node-1"></div>
+                            <div class="node node-2"></div>
+                            <div class="node node-3"></div>
+                            <div class="node node-4"></div>
+                            <div class="node node-5"></div>
+                            <div class="connection connection-1"></div>
+                            <div class="connection connection-2"></div>
+                            <div class="connection connection-3"></div>
+                            <div class="connection connection-4"></div>
+                            <div class="connection connection-5"></div>
+                        </div>
+                        <div class="floating-cards">
+                            <div class="tech-card card-1">
+                                <i class="fas fa-brain"></i>
+                                <span>AI Analysis</span>
+                            </div>
+                            <div class="tech-card card-2">
+                                <i class="fas fa-comments"></i>
+                                <span>Real-time Feedback</span>
+                            </div>
+                            <div class="tech-card card-3">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Progress Tracking</span>
+                            </div>
+                        </div>
+                        <div class="glow-effect"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="scroll-indicator">
+        <div class="tech-scroll">
+            <div class="scroll-line"></div>
+            <div class="scroll-dot"></div>
+        </div>
+    </div>
+</body>
+</html>

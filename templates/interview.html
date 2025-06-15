@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/interview.css') }}">
+<style>
+header, footer { display: none !important; }
+main > .container { max-width: unset; padding: 0; }
+.tech-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url("{{ url_for('static', filename='images/tech-bg.jpg') }}") no-repeat center center fixed;
+  background-size: cover;
+  z-index: -1;
+}
+.grid-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: -1;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="interview-main-wrapper">
+  <div class="interview-video-card">
+    <video id="camera" autoplay playsinline></video>
+  </div>
+  <div class="interview-card">
+    <div class="chat-header">
+      <h1 style="font-size:1.3rem;margin:0 0 0.2rem 0;">Interview Session</h1>
+      <div class="responsive-info">
+        <span class="role">{{ job_role }}</span>
+        <span class="difficulty">{{ difficulty }}</span>
+      </div>
+    </div>
+    <div class="chat-history" id="chatHistory">
+      <div class="chat-message pehvi"><b>pehvi:</b> {{ question }}</div>
+    </div>
+    <!-- Speech-to-Text Button and Result -->
+    <div class="chat-input-row" style="display: flex; align-items: center; gap: 1rem;">
+      <button id="stopSTTBtn" class="btn btn-danger" type="button">
+        Press To Stop
+      </button>
+      <span id="sttResult" style="flex:1; min-height:2em;"></span>
+    </div>
+  </div>
+</div>
+<script>
+navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    .then(function(stream) {
+        const video = document.getElementById('camera');
+        if (video) {
+            video.srcObject = stream;
+        }
+    })
+    .catch(function(err) {
+        console.error('Camera error:', err);
+    });
+
+const chatHistory = document.getElementById('chatHistory');
+const stopSTTBtn = document.getElementById('stopSTTBtn');
+const sttResult = document.getElementById('sttResult');
+const userName = '{{ session["user"]|default("You")|e }}';
+let recognizing = false;
+let recognition;
+let keepListening = false;
+let mediaRecorder;
+let audioChunks = [];
+
+if ('webkitSpeechRecognition' in window) {
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.onstart = function() {
+    recognizing = true;
+    stopSTTBtn.textContent = '🛑 Stop';
+    sttResult.textContent = '';
+  };
+  recognition.onerror = function(event) {
+    recognizing = false;
+    stopSTTBtn.textContent = '🎤 Speak Answer';
+    sttResult.textContent = '[Error: ' + event.error + ']';
+  };
+  recognition.onend = function() {
+    recognizing = false;
+    stopSTTBtn.textContent = '🎤 Speak Answer';
+    console.log('[STT DEBUG] onend fired. sttResult:', sttResult.textContent);
+    if (sttResult.textContent.trim()) {
+      console.log('[STT DEBUG] Calling submitSTTAnswer()');
+      submitSTTAnswer();
+    }
+    // Auto-restart if user hasn't pressed stop
+    if (keepListening) {
+      setTimeout(() => recognition.start(), 300);
+    } else {
+      console.log('[STT DEBUG] Not restarting recognition, user pressed stop.');
+    }
+  };
+  recognition.onresult = function(event) {
+    let finalTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript;
+      }
+    }
+    sttResult.textContent = finalTranscript;
+    console.log('[STT DEBUG] onresult fired. Transcript:', finalTranscript);
+  };
+  stopSTTBtn.onclick = function() {
+    if (recognizing) {
+      keepListening = false;
+      recognition.stop();
+      return;
+    }
+    keepListening = true;
+    recognition.start();
+  };
+} else {
+  stopSTTBtn.disabled = true;
+  sttResult.textContent = 'Speech recognition not supported in this browser.';
+}
+
+function playTTS(text) {
+  return new Promise((resolve, reject) => {
+    console.log('[TTS] Requesting audio for:', text);
+    fetch('/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ text })
+    })
+      .then(async res => {
+        if (res.ok) return await res.blob();
+        throw new Error('TTS audio not found');
+      })
+      .then(blob => {
+        console.log('[TTS] Received audio blob:', blob);
+        if (blob.size === 0) {
+          console.error('[TTS] Audio blob is empty');
+          alert('TTS audio is empty. Check server logs.');
+          reject();
+          return;
+        }
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        audio.onplay = () => console.log('[TTS] Audio is playing');
+        audio.onerror = (e) => {
+          console.error('[TTS] Audio playback error', e);
+          reject();
+        };
+        audio.onended = () => {
+          console.log('[TTS] Audio finished');
+          resolve();
+        };
+        audio.play();
+      })
+      .catch(err => {
+        console.error('[TTS] Error:', err);
+        alert('TTS error: ' + err.message);
+        reject();
+      });
+  });
+}
+
+async function appendChatMessage(role, text, playVoice = true) {
+  const div = document.createElement('div');
+  div.className = 'chat-message ' + role;
+  if (role === 'feedback') {
+    const feedbackMatch = text.match(/^(.*?)(<br><b>Model's Answer:<\/b>.*)?<br><b>Score:<\/b>\s*(\d+)%?$/i);
+    if (feedbackMatch) {
+      div.innerHTML = `<b>pehvi</b>: ${feedbackMatch[1]} <br><b>Score:</b> ${feedbackMatch[3]}%`;
+      chatHistory.appendChild(div);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+      if (playVoice) await playTTS(feedbackMatch[1]);
+      return;
+    } else {
+      div.innerHTML = `<b>pehvi</b>: ${text}`;
+      chatHistory.appendChild(div);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+      if (playVoice) await playTTS(text);
+      return;
+    }
+  } else {
+    div.innerHTML = `<b>${role === 'user' ? userName : 'pehvi'}</b>: ${text}`;
+    chatHistory.appendChild(div);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+    if (role === 'pehvi' && playVoice) {
+      await playTTS(text);
+      // Start listening automatically after each question is spoken
+      if ('webkitSpeechRecognition' in window && !recognizing) {
+        recognition.start();
+      }
+    }
+    return;
+  }
+}
+
+async function submitSTTAnswer() {
+  const answer = sttResult.textContent.trim();
+  console.log('[STT DEBUG] Submitting answer:', answer);
+  if (!answer) return;
+  await appendChatMessage('user', answer);
+  sttResult.textContent = '';
+
+  const questionDivs = chatHistory.querySelectorAll('.chat-message.pehvi');
+  const lastQuestion = questionDivs[questionDivs.length-1]?.textContent.replace(/^pehvi:/i, '').trim();
+  const formData = new URLSearchParams();
+  formData.append('answer', answer);
+  formData.append('question', lastQuestion);
+  try {
+    console.log('[STT DEBUG] Sending POST /submit_answer', {answer, question: lastQuestion});
+    const response = await fetch('/submit_answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString()
+    });
+    console.log('[STT DEBUG] Response status:', response.status);
+    if (!response.ok) throw new Error('Server error');
+    const data = await response.json();
+    console.log('[STT DEBUG] Feedback data:', data);
+    await appendChatMessage('feedback', `${data.feedback || ''} <br><b>Score:</b> ${data.similarity_score || 0}%`);
+    const jobRole = document.querySelector('.role').textContent;
+    const difficulty = document.querySelector('.difficulty').textContent;
+    const nextQ = await fetch(`/next_question?jobRole=${encodeURIComponent(jobRole)}&difficulty=${encodeURIComponent(difficulty)}`);
+    if (nextQ.ok) {
+      const nextData = await nextQ.json();
+      if (nextData.question) {
+        await appendChatMessage('pehvi', nextData.question);
+      }
+    }
+  } catch (err) {
+    await appendChatMessage('pehvi', 'Sorry, there was an error. Please try again.');
+    console.error('[STT DEBUG] Error:', err);
+  }
+}
+
+// Submit answer when speech recognition ends and result is available
+if ('webkitSpeechRecognition' in window) {
+  recognition.onend = function() {
+    recognizing = false;
+    stopSTTBtn.textContent = '🎤 Speak Answer';
+    console.log('[STT DEBUG] onend fired. sttResult:', sttResult.textContent);
+    if (sttResult.textContent.trim()) {
+      console.log('[STT DEBUG] Calling submitSTTAnswer()');
+      submitSTTAnswer();
+    } else {
+      console.log('[STT DEBUG] No speech recognized, not submitting.');
+    }
+  };
+  recognition.onresult = function(event) {
+    let finalTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript;
+      }
+    }
+    sttResult.textContent = finalTranscript;
+    console.log('[STT DEBUG] onresult fired. Transcript:', finalTranscript);
+  };
+}
+
+stopSTTBtn.addEventListener('click', async () => {
+  mediaRecorder.stop();
+  mediaRecorder.onstop = async () => {
+    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+    const formData = new FormData();
+    formData.append('audio', audioBlob);
+
+    const response = await fetch('/process_audio', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+    sttResult.textContent = result.transcription || "Error processing audio.";
+    if (result.feedback) {
+      alert(`Feedback: ${result.feedback}`);
+    }
+  };
+});
+
+window.addEventListener('DOMContentLoaded', function() {
+  const firstPehvi = chatHistory.querySelector('.chat-message.pehvi');
+  if (firstPehvi) {
+    const text = firstPehvi.textContent.replace(/^pehvi:/i, '').trim();
+    chatHistory.removeChild(firstPehvi);
+    appendChatMessage('pehvi', text, true).then(() => {
+      // Start listening automatically after question is spoken
+      if ('webkitSpeechRecognition' in window && !recognizing) {
+        recognition.start();
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

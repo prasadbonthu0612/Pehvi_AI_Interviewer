@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Pehvi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .flash-messages {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .flash-message {
+            padding: 1rem 2rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            color: white;
+            animation: slideIn 0.5s ease-out;
+        }
+        .flash-message.error {
+            background-color: #e74c3c;
+        }
+        .flash-message.success {
+            background-color: #2ecc71;
+        }
+        .flash-message.info {
+            background-color: #3498db;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="tech-bg"></div>
+    <div class="grid-overlay"></div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <header class="header">
+        <div class="header-content">
+        </div>
+    </header>
+    <main class="container">
+        <div class="hero" style="padding: 4rem 0; gap: 4rem;">
+            <div class="hero-content" style="flex: 0 0 45%; max-width: 500px;">
+                <div class="title-wrapper">
+                    <div class="tech-badge">AI Powered</div>
+                    <h1 class="tech-title">Pehvi</h1>
+                    <p class="tech-tagline">your AI Mock Interviewer.</p>
+                </div>
+                <div class="tech-description">
+                    Experience the future of interview preparation with our advanced AI technology. Get real-time feedback and personalized coaching.
+                </div>
+            </div>
+            <div class="hero-visual" style="flex: 0 0 55%; height: 600px; display: flex; justify-content: center; align-items: center;">
+                <form method="POST" action="{{ url_for('login') }}" class="auth-form" style="background:var(--card-bg);padding:2.5rem 2rem;border-radius:16px;box-shadow:0 8px 32px rgba(0,242,254,0.08);backdrop-filter:blur(10px);width:100%;max-width:400px;">
+                    <h2 class="tech-title" style="font-size:2.2rem;margin-bottom:1.5rem;">Login</h2>
+                    <div style="margin-bottom:1.2rem;">
+                        <label for="email" style="display:block;margin-bottom:0.5rem;color:var(--primary-color);font-weight:500;">Email</label>
+                        <input type="email" id="email" name="email" required style="width:100%;padding:0.8rem;border-radius:8px;border:none;background:rgba(255,255,255,0.08);color:var(--text-color);font-size:1rem;">
+                    </div>
+                    <div style="margin-bottom:1.8rem;">
+                        <label for="password" style="display:block;margin-bottom:0.5rem;color:var(--primary-color);font-weight:500;">Password</label>
+                        <input type="password" id="password" name="password" required style="width:100%;padding:0.8rem;border-radius:8px;border:none;background:rgba(255,255,255,0.08);color:var(--text-color);font-size:1rem;">
+                    </div>
+                    <button type="submit" class="tech-btn primary" style="width:100%;margin-bottom:1.2rem;">Login <i class="fas fa-arrow-right"></i></button>
+                    <div style="text-align:center;color:rgba(255,255,255,0.7);font-size:0.95rem;">
+                        Don't have an account? <a href="{{ url_for('signup') }}" style="color:var(--primary-color);text-decoration:underline;">Sign up</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Pehvi - AI Mock Interviewer{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="tech-bg"></div>
+    <div class="grid-overlay"></div>
+    <header>
+        <div class="container">
+            <div class="nav-wrapper">
+                <div class="auth-buttons" style="margin-left: auto;">
+                    {% if 'user' in session %}
+                        <a href="{{ url_for('dashboard') }}" class="btn tech-btn">Dashboard</a>
+                        <a href="{{ url_for('logout') }}" class="btn tech-btn">Logout</a>
+                    {% else %}
+                        <a href="{{ url_for('login') }}" class="btn tech-btn login">Log In</a>
+                        <a href="{{ url_for('signup') }}" class="btn tech-btn signup">Sign Up</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+    <main>
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    <footer>
+        <div class="container">
+            <p style="text-align:center; color:#aaa; margin:2rem 0 1rem 0;">&copy; 2025 Pehvi. All rights reserved.</p>
+        </div>
+    </footer>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
