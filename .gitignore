@@ -21,6 +21,7 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -104,3 +105,39 @@ models/
 *.onnx
 *.pth
 *.pt
+
+# Model files
+models/
+*.onnx
+*.bin
+*.pt
+*.pth
+*.h5
+*.model
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite3
+
+# Large files
+*.dll
+*.lib
