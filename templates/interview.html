@@ -11,8 +11,7 @@ main > .container { max-width: unset; padding: 0; }
   left: 0;
   width: 100%;
   height: 100%;
-  background: url("{{ url_for('static', filename='images/tech-bg.jpg') }}") no-repeat center center fixed;
-  background-size: cover;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
   z-index: -1;
 }
 .grid-overlay {
@@ -29,10 +28,13 @@ main > .container { max-width: unset; padding: 0; }
 
 {% block content %}
 <div class="interview-main-wrapper">
-  <div class="interview-video-card">
+  <div class="interview-video-card" style="position: relative;">
     <video id="camera" autoplay playsinline></video>
+    <button id="stopSTTBtn" class="btn btn-danger" style="position: absolute; bottom: 20px; right: 20px; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+      🎤
+    </button>
   </div>
-  <div class="interview-card">
+  <div class="interview-card" style="height: 600px; display: flex; flex-direction: column;">
     <div class="chat-header">
       <h1 style="font-size:1.3rem;margin:0 0 0.2rem 0;">Interview Session</h1>
       <div class="responsive-info">
@@ -40,132 +42,154 @@ main > .container { max-width: unset; padding: 0; }
         <span class="difficulty">{{ difficulty }}</span>
       </div>
     </div>
-    <div class="chat-history" id="chatHistory">
-      <div class="chat-message pehvi"><b>pehvi:</b> {{ question }}</div>
-    </div>
-    <!-- Speech-to-Text Button and Result -->
-    <div class="chat-input-row" style="display: flex; align-items: center; gap: 1rem;">
-      <button id="stopSTTBtn" class="btn btn-danger" type="button">
-        Press To Stop
-      </button>
-      <span id="sttResult" style="flex:1; min-height:2em;"></span>
+    <div class="chat-history" id="chatHistory" style="flex: 1; overflow-y: auto; height: 500px;" data-is-intro="{{ 'true' if is_intro else 'false' }}">
+      {% if is_intro %}
+      <div class="chat-message pehvi"><b>pehvi:</b> {{ intro_message }}</div>
+      {% endif %}
     </div>
   </div>
 </div>
+<div class="speech-controls" style="margin-top: 20px; text-align: center;">
+  <span id="sttResult" style="display: block; margin-top: 10px; min-height: 2em;"></span>
+</div>
 <script>
-navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-    .then(function(stream) {
-        const video = document.getElementById('camera');
-        if (video) {
-            video.srcObject = stream;
+let recognition = null;
+let recognizing = false;
+let userStopped = false;
+let accumulatedTranscript = '';
+let currentQuestionId = null;
+let isIntroduction = document.getElementById('chatHistory').dataset.isIntro === 'true';
+
+function initSpeechRecognition() {
+  if ('webkitSpeechRecognition' in window) {
+    recognition = new webkitSpeechRecognition();
+    recognition.continuous = true; // Keep listening until user stops
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = function() {
+      recognizing = true;
+      stopSTTBtn.textContent = '🛑 Stop';
+      sttResult.textContent = '';
+      accumulatedTranscript = '';
+    };
+
+    recognition.onerror = function(event) {
+      console.error('[STT] Error:', event.error);
+      recognizing = false;
+      stopSTTBtn.textContent = '🎤 Start';
+      sttResult.textContent = '[Error: ' + event.error + ']';
+    };
+
+    recognition.onend = function() {
+      recognizing = false;
+      stopSTTBtn.textContent = '🎤 Start ';
+      if (accumulatedTranscript) {
+        // Only add the user message to chat if we're not in introduction mode
+        if (!isIntroduction) {
+          const finalTranscriptDiv = document.createElement('div');
+          finalTranscriptDiv.className = 'chat-message user';
+          finalTranscriptDiv.innerHTML = `<b>You:</b> ${accumulatedTranscript.trim()}`;
+          chatHistory.appendChild(finalTranscriptDiv);
+          chatHistory.scrollTop = chatHistory.scrollHeight;
         }
-    })
-    .catch(function(err) {
-        console.error('Camera error:', err);
-    });
+        submitSTTAnswer(); // Process feedback after stopping
+      }
+      sttResult.textContent = '';
+      accumulatedTranscript = '';
+    };
+
+    recognition.onresult = function(event) {
+      let interimTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          accumulatedTranscript += event.results[i][0].transcript + ' ';
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
+      sttResult.textContent = (accumulatedTranscript + interimTranscript).trim();
+      // Remove live transcript display
+    };
+  } else {
+    stopSTTBtn.disabled = true;
+    sttResult.textContent = 'Speech recognition not supported in this browser.';
+  }
+}
+
+// Initialize camera
+navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+  .then(function(stream) {
+    const video = document.getElementById('camera');
+    if (video) {
+      video.srcObject = stream;
+    }
+  })
+  .catch(function(err) {
+    console.error('Camera error:', err);
+  });
 
 const chatHistory = document.getElementById('chatHistory');
 const stopSTTBtn = document.getElementById('stopSTTBtn');
 const sttResult = document.getElementById('sttResult');
 const userName = '{{ session["user"]|default("You")|e }}';
-let recognizing = false;
-let recognition;
-let keepListening = false;
-let mediaRecorder;
-let audioChunks = [];
 
-if ('webkitSpeechRecognition' in window) {
-  recognition = new webkitSpeechRecognition();
-  recognition.continuous = false;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
-  recognition.onstart = function() {
-    recognizing = true;
-    stopSTTBtn.textContent = '🛑 Stop';
-    sttResult.textContent = '';
-  };
-  recognition.onerror = function(event) {
-    recognizing = false;
-    stopSTTBtn.textContent = '🎤 Speak Answer';
-    sttResult.textContent = '[Error: ' + event.error + ']';
-  };
-  recognition.onend = function() {
-    recognizing = false;
-    stopSTTBtn.textContent = '🎤 Speak Answer';
-    console.log('[STT DEBUG] onend fired. sttResult:', sttResult.textContent);
-    if (sttResult.textContent.trim()) {
-      console.log('[STT DEBUG] Calling submitSTTAnswer()');
-      submitSTTAnswer();
-    }
-    // Auto-restart if user hasn't pressed stop
-    if (keepListening) {
-      setTimeout(() => recognition.start(), 300);
-    } else {
-      console.log('[STT DEBUG] Not restarting recognition, user pressed stop.');
-    }
-  };
-  recognition.onresult = function(event) {
-    let finalTranscript = '';
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      if (event.results[i].isFinal) {
-        finalTranscript += event.results[i][0].transcript;
-      }
-    }
-    sttResult.textContent = finalTranscript;
-    console.log('[STT DEBUG] onresult fired. Transcript:', finalTranscript);
-  };
-  stopSTTBtn.onclick = function() {
-    if (recognizing) {
-      keepListening = false;
+initSpeechRecognition();
+
+stopSTTBtn.onclick = function() {
+  if (!recognition) {
+    console.error('[STT] Recognition not initialized');
+    return;
+  }
+  if (recognizing) {
+    userStopped = true;
+    try {
       recognition.stop();
-      return;
+    } catch (e) {
+      console.error('[STT] Error stopping:', e);
     }
-    keepListening = true;
-    recognition.start();
-  };
-} else {
-  stopSTTBtn.disabled = true;
-  sttResult.textContent = 'Speech recognition not supported in this browser.';
-}
+  } else {
+    userStopped = false;
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error('[STT] Error starting:', e);
+    }
+  }
+};
 
 function playTTS(text) {
   return new Promise((resolve, reject) => {
-    console.log('[TTS] Requesting audio for:', text);
     fetch('/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ text })
     })
-      .then(async res => {
-        if (res.ok) return await res.blob();
-        throw new Error('TTS audio not found');
-      })
-      .then(blob => {
-        console.log('[TTS] Received audio blob:', blob);
-        if (blob.size === 0) {
-          console.error('[TTS] Audio blob is empty');
-          alert('TTS audio is empty. Check server logs.');
-          reject();
-          return;
-        }
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        audio.onplay = () => console.log('[TTS] Audio is playing');
-        audio.onerror = (e) => {
-          console.error('[TTS] Audio playback error', e);
-          reject();
-        };
-        audio.onended = () => {
-          console.log('[TTS] Audio finished');
-          resolve();
-        };
-        audio.play();
-      })
-      .catch(err => {
-        console.error('[TTS] Error:', err);
-        alert('TTS error: ' + err.message);
+    .then(async res => {
+      if (res.ok) return await res.blob();
+      throw new Error('TTS audio not found');
+    })
+    .then(blob => {
+      if (blob.size === 0) {
+        alert('TTS audio is empty. Check server logs.');
         reject();
-      });
+        return;
+      }
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        resolve();
+      };
+      audio.onerror = (e) => {
+        reject();
+      };
+      audio.play();
+    })
+    .catch(err => {
+      alert('TTS error: ' + err.message);
+      reject();
+    });
   });
 }
 
@@ -180,124 +204,109 @@ async function appendChatMessage(role, text, playVoice = true) {
       chatHistory.scrollTop = chatHistory.scrollHeight;
       if (playVoice) await playTTS(feedbackMatch[1]);
       return;
-    } else {
-      div.innerHTML = `<b>pehvi</b>: ${text}`;
-      chatHistory.appendChild(div);
-      chatHistory.scrollTop = chatHistory.scrollHeight;
-      if (playVoice) await playTTS(text);
-      return;
     }
-  } else {
-    div.innerHTML = `<b>${role === 'user' ? userName : 'pehvi'}</b>: ${text}`;
-    chatHistory.appendChild(div);
-    chatHistory.scrollTop = chatHistory.scrollHeight;
-    if (role === 'pehvi' && playVoice) {
-      await playTTS(text);
-      // Start listening automatically after each question is spoken
-      if ('webkitSpeechRecognition' in window && !recognizing) {
-        recognition.start();
-      }
-    }
+  }
+  div.innerHTML = `<b>${role === 'user' ? userName : 'pehvi'}</b>: ${text}`;
+  chatHistory.appendChild(div);
+  chatHistory.scrollTop = chatHistory.scrollHeight;
+  if ((role === 'pehvi' || role === 'feedback') && playVoice) {
+    await playTTS(text);
+  }
+}
+
+async function loadNextQuestion() {
+  const response = await fetch('/next_question?jobRole={{ job_role }}&difficulty={{ difficulty }}');
+  const data = await response.json();
+  if (data.question) {
+    currentQuestionId = data.question_id;
+    appendChatMessage('pehvi', data.question, true);
+  }
+}
+
+function submitSTTAnswer() {
+  const answer = sttResult.textContent.trim();
+  if (!answer) return;
+
+  // Get the last question from Pehvi (excluding introduction)
+  const pehviMessages = Array.from(document.querySelectorAll('.chat-message.pehvi'));
+  const lastQuestion = pehviMessages[pehviMessages.length - 1];
+  const question = lastQuestion ? lastQuestion.textContent.replace(/^pehvi:\s*/i, '').trim() : '';
+
+  if (isIntroduction) {
+    // Handle introduction response
+    const introResponseDiv = document.createElement('div');
+    introResponseDiv.className = 'chat-message user';
+    introResponseDiv.innerHTML = `<b>You:</b> ${answer}`;
+    chatHistory.appendChild(introResponseDiv);
+    
+    // Add AI's response to introduction
+    const responses = [
+      "Thank you for sharing that! It's great to learn about your background.",
+      "That's very interesting! Thanks for introducing yourself.",
+      "Wonderful introduction! I appreciate you sharing that with me.",
+      "Thank you for that comprehensive introduction! Now I know you better."
+    ];
+    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+    
+    const aiResponseDiv = document.createElement('div');
+    aiResponseDiv.className = 'chat-message pehvi';
+    aiResponseDiv.innerHTML = `<b>pehvi:</b> ${randomResponse} Now, let's begin with the technical questions.`;
+    chatHistory.appendChild(aiResponseDiv);
+    
+    // Play AI's response
+    playTTS(randomResponse + " Now, let's begin with the technical questions.").then(() => {
+      isIntroduction = false;
+      // Load first technical question
+      loadNextQuestion();
+    });
+    
     return;
   }
-}
 
-async function submitSTTAnswer() {
-  const answer = sttResult.textContent.trim();
-  console.log('[STT DEBUG] Submitting answer:', answer);
-  if (!answer) return;
-  await appendChatMessage('user', answer);
-  sttResult.textContent = '';
+  // Handle technical questions
+  fetch('/submit_answer', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      answer: answer,
+      question: question,
+      jobRole: '{{ job_role }}',
+      difficulty: '{{ difficulty }}'
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.feedback) {
+      // Display feedback in chat
+      const feedbackDiv = document.createElement('div');
+      feedbackDiv.className = 'chat-message feedback';
+      feedbackDiv.innerHTML = `<b>Feedback</b>: ${data.feedback}<br><b>Score</b>: ${data.similarity_score}%<br><br><div class="model-answer"><b>Model Generated Answer</b><br>${data.model_answer}</div>`;
+      chatHistory.appendChild(feedbackDiv);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
 
-  const questionDivs = chatHistory.querySelectorAll('.chat-message.pehvi');
-  const lastQuestion = questionDivs[questionDivs.length-1]?.textContent.replace(/^pehvi:/i, '').trim();
-  const formData = new URLSearchParams();
-  formData.append('answer', answer);
-  formData.append('question', lastQuestion);
-  try {
-    console.log('[STT DEBUG] Sending POST /submit_answer', {answer, question: lastQuestion});
-    const response = await fetch('/submit_answer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData.toString()
-    });
-    console.log('[STT DEBUG] Response status:', response.status);
-    if (!response.ok) throw new Error('Server error');
-    const data = await response.json();
-    console.log('[STT DEBUG] Feedback data:', data);
-    await appendChatMessage('feedback', `${data.feedback || ''} <br><b>Score:</b> ${data.similarity_score || 0}%`);
-    const jobRole = document.querySelector('.role').textContent;
-    const difficulty = document.querySelector('.difficulty').textContent;
-    const nextQ = await fetch(`/next_question?jobRole=${encodeURIComponent(jobRole)}&difficulty=${encodeURIComponent(difficulty)}`);
-    if (nextQ.ok) {
-      const nextData = await nextQ.json();
-      if (nextData.question) {
-        await appendChatMessage('pehvi', nextData.question);
-      }
-    }
-  } catch (err) {
-    await appendChatMessage('pehvi', 'Sorry, there was an error. Please try again.');
-    console.error('[STT DEBUG] Error:', err);
-  }
-}
-
-// Submit answer when speech recognition ends and result is available
-if ('webkitSpeechRecognition' in window) {
-  recognition.onend = function() {
-    recognizing = false;
-    stopSTTBtn.textContent = '🎤 Speak Answer';
-    console.log('[STT DEBUG] onend fired. sttResult:', sttResult.textContent);
-    if (sttResult.textContent.trim()) {
-      console.log('[STT DEBUG] Calling submitSTTAnswer()');
-      submitSTTAnswer();
+      // Play only the feedback using TTS
+      playTTS(data.feedback).then(() => {
+        // Load next question after feedback is spoken
+        loadNextQuestion();
+      });
     } else {
-      console.log('[STT DEBUG] No speech recognized, not submitting.');
+      console.error('No feedback received from server');
     }
-  };
-  recognition.onresult = function(event) {
-    let finalTranscript = '';
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      if (event.results[i].isFinal) {
-        finalTranscript += event.results[i][0].transcript;
-      }
-    }
-    sttResult.textContent = finalTranscript;
-    console.log('[STT DEBUG] onresult fired. Transcript:', finalTranscript);
-  };
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
 }
 
-stopSTTBtn.addEventListener('click', async () => {
-  mediaRecorder.stop();
-  mediaRecorder.onstop = async () => {
-    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-    const formData = new FormData();
-    formData.append('audio', audioBlob);
-
-    const response = await fetch('/process_audio', {
-      method: 'POST',
-      body: formData
-    });
-
-    const result = await response.json();
-    sttResult.textContent = result.transcription || "Error processing audio.";
-    if (result.feedback) {
-      alert(`Feedback: ${result.feedback}`);
-    }
-  };
-});
-
-window.addEventListener('DOMContentLoaded', function() {
-  const firstPehvi = chatHistory.querySelector('.chat-message.pehvi');
-  if (firstPehvi) {
-    const text = firstPehvi.textContent.replace(/^pehvi:/i, '').trim();
-    chatHistory.removeChild(firstPehvi);
-    appendChatMessage('pehvi', text, true).then(() => {
-      // Start listening automatically after question is spoken
-      if ('webkitSpeechRecognition' in window && !recognizing) {
-        recognition.start();
-      }
-    });
+window.addEventListener('DOMContentLoaded', async () => {
+  // Speak the initial message
+  const firstMessageDiv = document.querySelector('.chat-message.pehvi');
+  if (firstMessageDiv) {
+    const messageText = firstMessageDiv.textContent.replace('pehvi:', '').trim();
+    await playTTS(messageText);
   }
 });
 </script>
-{% endblock %}
+{% endblock %} 

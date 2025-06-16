@@ -3,12 +3,19 @@ Werkzeug==3.0.1
 Jinja2==3.1.3
 itsdangerous==2.1.2
 click==8.1.7
-# Added missing dependencies
 transformers
 onnxruntime
 pandas
 language_tool_python
 numpy
 sentencepiece
-# For TTS integration
+gunicorn
+flask_sqlalchemy
+gtts
+vosk
+gdown
+psycopg2-binary
 pyttsx3
+flask_socketio
+sounddevice
+requests

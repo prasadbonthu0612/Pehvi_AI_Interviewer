@@ -9,10 +9,12 @@ import uuid
 from ml_models import interview_models
 import requests
 import traceback
-import pyttsx3
 from gtts import gTTS
 from vosk import Model, KaldiRecognizer
 import wave
+import threading
+import time
+import subprocess
 
 app = Flask(__name__)
 
@@ -140,22 +142,15 @@ def interview():
     job_role = request.args.get('jobRole', '')
     difficulty = request.args.get('difficulty', '')
     
-    # Get context for the selected job role and difficulty
-    context = interview_models.get_context(job_role, difficulty)
-    if not context:
-        flash('No questions available for the selected role and difficulty', 'error')
-        return redirect(url_for('dashboard'))
-    
-    # Generate question asynchronously
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    question = loop.run_until_complete(interview_models.generate_questions(context))
-    loop.close()
+    # Get user's name
+    user = User.query.filter_by(email=session['user']).first()
+    intro_message = f"Hi, I'm Pehvi, your AI mock interviewer. Can you tell me about yourself?"
     
     return render_template('interview.html', 
                          job_role=job_role, 
-                         difficulty=difficulty, 
-                         question=question)
+                         difficulty=difficulty,
+                         intro_message=intro_message,
+                         is_intro=True)
 
 @app.route('/submit_answer', methods=['POST'])
 def submit_answer():
@@ -164,15 +159,22 @@ def submit_answer():
     
     question = request.form.get('question')
     user_answer = request.form.get('answer')
+    job_role = request.form.get('jobRole')
+    difficulty = request.form.get('difficulty')
     
-    if not question or not user_answer:
-        return jsonify({'error': 'Question and answer are required'}), 400
+    if not question or not user_answer or not job_role or not difficulty:
+        return jsonify({'error': 'Question, answer, job role and difficulty are required'}), 400
+    
+    # Get context for the selected job role and difficulty
+    context = interview_models.get_context(job_role, difficulty)
+    if not context:
+        return jsonify({'error': 'No context available for this job role and difficulty'}), 400
     
     # Generate model answer and evaluate asynchronously
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
-    # Generate model answer
+    # Generate model answer with only the question
     model_answer = loop.run_until_complete(interview_models.generate_answer(question))
     
     # Evaluate user's answer
@@ -183,16 +185,34 @@ def submit_answer():
 
 @app.route('/next_question')
 def next_question():
+    if 'user' not in session:
+        return jsonify({'error': 'Please login'}), 401
+        
     job_role = request.args.get('jobRole', '')
     difficulty = request.args.get('difficulty', '')
+    
+    # Get context for the selected job role and difficulty
     context = interview_models.get_context(job_role, difficulty)
     if not context:
         return jsonify({'error': 'No questions available'}), 400
+        
+    # Generate question asynchronously
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     question = loop.run_until_complete(interview_models.generate_questions(context))
     loop.close()
+    
     return jsonify({'question': question})
+
+def delayed_delete(path, delay=10):
+    def delete_file():
+        time.sleep(delay)
+        try:
+            os.remove(path)
+            print(f'[TTS] Deleted audio file after delay: {path}')
+        except Exception as e:
+            print(f'[TTS] Error deleting audio file after delay: {e}')
+    threading.Thread(target=delete_file, daemon=True).start()
 
 @app.route('/tts', methods=['POST'])
 def tts():
@@ -215,19 +235,16 @@ def tts():
         print('[TTS] Audio file is empty:', audio_path)
         return jsonify({'error': 'Audio file is empty'}), 500
     print('[TTS] Serving audio file:', audio_path)
-    response = send_file(audio_path, mimetype='audio/wav')
-    @response.call_on_close
-    def cleanup():
-        try:
-            os.remove(audio_path)
-            print('[TTS] Deleted audio file:', audio_path)
-        except Exception as e:
-            print('[TTS] Error deleting audio file:', e)
+    response = send_file(audio_path, mimetype='audio/mp3')
+    delayed_delete(audio_path, delay=10)  # 10 seconds delay
     return response
 
 # Initialize Vosk Model
-vosk_model_path = os.path.join(os.path.dirname(__file__), 'vosk-model-small-en-us-0.15', 'vosk-model-small-en-us-0.15')
-vosk_model = Model(vosk_model_path)
+vosk_model_dir = os.path.join(os.path.dirname(__file__), 'vosk-model-small-en-us-0.15')
+if not os.path.exists(vosk_model_dir):
+    print('Downloading Vosk model from Google Drive...')
+    subprocess.run(['gdown', '--folder', 'https://drive.google.com/drive/folders/10t5gLQzQgPlwm8-1yWyYNl22tA0HbZtx?usp=drive_link', '-O', vosk_model_dir], check=True)
+vosk_model = Model(vosk_model_dir)
 
 @app.route('/process_audio', methods=['POST'])
 def process_audio():

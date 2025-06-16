@@ -6,9 +6,18 @@ import onnxruntime as ort
 from typing import List, Tuple, Optional
 import numpy as np
 import os
+import subprocess
 
 class InterviewModels:
     def __init__(self):
+        # Download ONNX models from Google Drive if not present
+        if not os.path.exists('models/answering_model.onnx/encoder_model.onnx'):
+            print('Downloading answering_model.onnx from Google Drive...')
+            subprocess.run(['gdown', '--folder', 'https://drive.google.com/drive/folders/1Z4BcdncIicpAJt0WZZHsR2P10VN2Om7g?usp=drive_link', '-O', 'models/answering_model.onnx'], check=True)
+        if not os.path.exists('models/question_model.onnx/encoder_model.onnx'):
+            print('Downloading question_model.onnx from Google Drive...')
+            subprocess.run(['gdown', '--folder', 'https://drive.google.com/drive/folders/1PBfweUNfIJfK4ALvBoZinVDBs02zo4WS?usp=sharing', '-O', 'models/question_model.onnx'], check=True)
+        
         print('Initializing LanguageTool...')
         self.tool = ltp.LanguageTool('en-US')
         print('LanguageTool initialized.')
@@ -86,7 +95,7 @@ class InterviewModels:
     def generate_questions_prompt(self, context: str) -> str:
         """Return a refined prompt for generating clear, well-defined technical interview questions."""
         prompt_prefix = (
-            "Generate a clear, well-defined, and technical interview question for a candidate applying for the following role and difficulty. "
+            "Generate a clear, well-defined, and interview question."
             "The question should be specific, unambiguous, and relevant to the context. Avoid vague or generic wording. "
             "Context: "
         )
@@ -166,10 +175,12 @@ class InterviewModels:
             return question
 
     def generate_answer_prompt(self, question: str) -> str:
-        """Return a refined prompt for generating clear, well-structured technical answers."""
         return (
-            "Provide a clear, detailed, and well-structured technical answer to the following interview question. "
-            "Avoid repetition and incomplete sentences. Use examples if appropriate. Question: " + question
+            "You are a technical interviewer. Provide a clear, detailed, and well-structured answer "
+            "to the following technical question. Focus on accuracy and completeness. "
+            "Avoid repetition and self-references.\n\n"
+            f"Question: {question}\n\n"
+            "Technical Answer:"
         )
 
     def postprocess_answer(self, answer: str) -> str:
@@ -280,14 +291,14 @@ class InterviewModels:
 
     def _generate_feedback(self, similarity: float) -> str:
         """Generate feedback based on similarity score"""
-        if similarity >= 0.8:
-            return "Excellent answer! You've covered most of the key points."
-        elif similarity >= 0.6:
-            return "Good answer! You've covered many important points, but could add more details."
-        elif similarity >= 0.4:
-            return "Fair answer. Consider adding more technical details and examples."
+        if similarity >= 0.5:
+            return "Excellent answer! You've covered most of the key points and provided a comprehensive response."
+        elif similarity >= 0.2:
+            return "Good answer! You've covered many important points, but consider adding more details or examples to strengthen your response."
+        elif similarity >= 0.1:
+            return "Fair answer. Consider adding more technical details and examples to improve your response."
         else:
-            return "Your answer could be improved. Consider reviewing the topic and providing more comprehensive coverage."
+            return "Your answer could be improved. Consider reviewing the topic and providing more comprehensive coverage with specific examples."
 
 # Create a singleton instance
 interview_models = InterviewModels()
