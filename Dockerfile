@@ -29,9 +29,9 @@ RUN mkdir -p /app/models/question_model.onnx && \
     wget -O /app/models/question_model.onnx/tokenizer.json "https://drive.google.com/uc?export=download&id=1FKOVYEJQfK4oGhhisI3vDRrOOSLmyrsd"
 
 # Download vosk model (example: download and unzip)
-RUN mkdir -p /app/models/vosk && \
-    wget -O /app/models/vosk/vosk-model.zip "https://drive.google.com/file/d/1UZiwoEpteJ3me8tDuhkXRWudIySb56KB" && \
-    apt-get update && apt-get install -y unzip && \
+RUN apt-get update && apt-get install -y unzip wget && rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /app/models/vosk && \
+    wget -O /app/models/vosk/vosk-model.zip "https://drive.google.com/uc?export=download&id=1UZiwoEpteJ3me8tDuhkXRWudIySb56KB" && \
     unzip /app/models/vosk/vosk-model.zip -d /app/models/vosk && \
     rm /app/models/vosk/vosk-model.zip
 
