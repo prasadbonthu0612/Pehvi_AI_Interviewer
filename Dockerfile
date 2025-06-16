@@ -1,7 +1,7 @@
 FROM python:3.10-slim
 
 # Install Java, git, unzip, and gdown
-RUN apt-get update && apt-get install -y default-jre git unzip && rm -rf /var/lib/apt/lists/* && \
+RUN apt-get update && apt-get install -y default-jre git unzip curl && rm -rf /var/lib/apt/lists/* && \
     pip install --no-cache-dir gdown
 
 # Set the working directory
