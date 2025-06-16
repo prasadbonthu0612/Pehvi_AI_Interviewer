@@ -17,4 +17,4 @@ RUN pip install -r requirements.txt
 EXPOSE 10000
 
 # Start the app with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:${PORT:-10000}", "main:app"]
+CMD gunicorn --bind 0.0.0.0:${PORT:-10000} main:app
