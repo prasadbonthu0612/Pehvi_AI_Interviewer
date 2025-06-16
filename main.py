@@ -22,7 +22,7 @@ os.environ["TRANSFORMERS_NO_FLAX_WARNING"] = "1"
 os.environ["TRANSFORMERS_NO_PYTORCH_WARNING"] = "1"
 
 # ✅ Global Flask app instance (needed for gunicorn)
-app = Flask(_name_)
+app = Flask(__name__)
 
 # ✅ SQLAlchemy DB configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:praSAD000%40%40%40@db.coyaezvojwljttxuamvo.supabase.co:5432/postgres'
@@ -48,7 +48,7 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
-AUDIO_PROMPT_PATH = os.path.abspath(os.path.join(os.path.dirname(_file_), 'data', 'myaudio.wav'))
+AUDIO_PROMPT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data', 'myaudio.wav'))
 
 def generate_tts_audio(text):
     tts = gTTS(text=text, lang='en', slow=False, tld='co.in')
