@@ -240,11 +240,12 @@ def tts():
     return response
 
 # Initialize Vosk Model
-vosk_model_dir = os.path.join(os.path.dirname(__file__), 'vosk-model-small-en-us-0.15')
+vosk_model_dir = os.path.join(os.path.dirname(__file__), 'models', 'vosk', 'vosk-model-small-en-us-0.15')
+vosk_model = Model(vosk_model_dir)
 #if not os.path.exists(vosk_model_dir):
    # print('Downloading Vosk model from Google Drive...')
   #  subprocess.run(['gdown', '--folder', 'https://drive.google.com/drive/folders/10t5gLQzQgPlwm8-1yWyYNl22tA0HbZtx?usp=drive_link', '-O', vosk_model_dir], check=True)
-vosk_model = Model(vosk_model_dir)
+
 
 @app.route('/process_audio', methods=['POST'])
 def process_audio():
