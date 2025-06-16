@@ -11,13 +11,13 @@ import subprocess
 class InterviewModels:
     def __init__(self):
         # Download ONNX models from Google Drive if not present
-        if not os.path.exists('models/answering_model.onnx/encoder_model.onnx'):
-            print('Downloading answering_model.onnx from Google Drive...')
-            subprocess.run(['gdown', '--folder', 'https://drive.google.com/drive/folders/1Z4BcdncIicpAJt0WZZHsR2P10VN2Om7g?usp=drive_link', '-O', 'models/answering_model.onnx'], check=True)
-        if not os.path.exists('models/question_model.onnx/encoder_model.onnx'):
-            print('Downloading question_model.onnx from Google Drive...')
-            subprocess.run(['gdown', '--folder', 'https://drive.google.com/drive/folders/1PBfweUNfIJfK4ALvBoZinVDBs02zo4WS?usp=sharing', '-O', 'models/question_model.onnx'], check=True)
-        
+        #if not os.path.exists('models/answering_model.onnx/encoder_model.onnx'):
+            #print('Downloading answering_model.onnx from Google Drive...')
+            #subprocess.run(['gdown', '--folder', 'https://drive.google.com/drive/folders/1Z4BcdncIicpAJt0WZZHsR2P10VN2Om7g?usp=drive_link', '-O', 'models/answering_model.onnx'], check=True)
+        #if not os.path.exists('models/question_model.onnx/encoder_model.onnx'):
+            #print('Downloading question_model.onnx from Google Drive...')
+            #subprocess.run(['gdown', '--folder', 'https://drive.google.com/drive/folders/1PBfweUNfIJfK4ALvBoZinVDBs02zo4WS?usp=sharing', '-O', 'models/question_model.onnx'], check=True)
+
         print('Initializing LanguageTool...')
         self.tool = ltp.LanguageTool('en-US')
         print('LanguageTool initialized.')
