@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y default-jre git unzip && rm -rf /var/li
 
 # Set the working directory
 WORKDIR /app
+RUN mkdir -p /root/.cache/language_tool_python && \
+    curl -L https://internal1.languagetool.org/snapshots/LanguageTool-latest-snapshot.zip -o /root/.cache/language_tool_python/LanguageTool-latest.zip && \
+    unzip /root/.cache/language_tool_python/LanguageTool-latest.zip -d /root/.cache/language_tool_python && \
+    rm /root/.cache/language_tool_python/LanguageTool-latest.zip
 
 # Download answering_model.onnx and its files using gdown
 RUN mkdir -p /app/models/answering_model.onnx && \
