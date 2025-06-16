@@ -45,4 +45,5 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 EXPOSE 10000
-CMD gunicorn --bind 0.0.0.0:${PORT:-10000} main:app 
+CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "main:app"]
+
