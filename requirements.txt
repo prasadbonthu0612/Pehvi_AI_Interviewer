@@ -19,4 +19,4 @@ pyttsx3
 flask_socketio
 sounddevice
 requests
-torch
+dotenv
