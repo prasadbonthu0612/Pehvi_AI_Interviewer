@@ -8,7 +8,7 @@ import sounddevice as sd
 import json
 
 # Path to your Vosk model directory
-MODEL_PATH = r'C:\Users\prasa\Desktop\demo\vosk-model-small-en-us-0.15\vosk-model-small-en-us-0.15'
+MODEL_PATH = r'vosk-model-small-en-us-0.15/vosk-model-small-en-us-0.15'
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
